@@ -82,28 +82,29 @@ void FrameObject::dereferenceSvg(QString filePath){
 
     if(docRoot.hasChildNodes()){
         QDomElement childElement = docRoot.firstChildElement();
-        recrusiveSvg(finalized, parentElement, childElement);
+        recursiveSvg(finalized, parentElement, childElement);
     }
+    docs.insert(QString::number(frameID) + "/" + QString::number(currentSpriteIndex) + ".svg", finalized);
     return;
 }
 
-void FrameObject::recrusiveSvg(QDomDocument* ownerDoc, QDomElement& parentElement, QDomElement& element){
+void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElement, QDomElement& element){
     while(!element.isNull()){
+        QDomElement nextSibling = element.nextSiblingElement();
         if(element.tagName().toLower() == "g"){
             QDomElement newElement = ownerDoc->createElement("g");
             QDomNamedNodeMap docElementAttr = element.attributes();
             for(int i = 0; i < docElementAttr.count(); i++){
                 QDomNode attr = docElementAttr.item(i);
-                if(attr.nodeName().toLower() == "height" || attr.nodeName().toLower() == "width" || attr.nodeName().toLower() == "transform"){
+                if(!attr.nodeName().contains("ffdec",Qt::CaseInsensitive) && !attr.nodeName().contains("xlink",Qt::CaseInsensitive)){
                     newElement.setAttribute(attr.nodeName(),attr.nodeValue());
+                    qDebug() << attr.nodeName() << attr.nodeValue();
                 }
             }
             parentElement.appendChild(newElement);
-            if(element.childNodes().count() > 0){
-                for(int i = 0; i < element.childNodes().count(); i++){
-                    QDomElement childElement = element.childNodes().at(i).toElement();
-                    recrusiveSvg(ownerDoc,newElement, childElement);
-                }
+            if (element.hasChildNodes()) {
+                QDomElement child = element.firstChildElement();
+                recursiveSvg(ownerDoc, newElement, child);
             }
         }
         if(element.tagName().toLower() == "use"){
@@ -113,8 +114,9 @@ void FrameObject::recrusiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
             QDomNamedNodeMap docElementAttr = element.attributes();
             for(int i = 0; i < docElementAttr.count(); i++){
                 QDomNode attr = docElementAttr.item(i);
-                if(attr.nodeName().toLower() == "height" || attr.nodeName().toLower() == "width" || attr.nodeName().toLower() == "transform"){
+                if(!attr.nodeName().contains("ffdec",Qt::CaseInsensitive) && !attr.nodeName().contains("xlink",Qt::CaseInsensitive)){
                     newElement.setAttribute(attr.nodeName(),attr.nodeValue());
+                    qDebug() << attr.nodeName() << attr.nodeValue();
                 } else if(attr.nodeName().toLower() == "xlink:href" && attr.nodeValue().toLower().contains("shape")){
                     type = SHAPE;
                 } else if(attr.nodeName().toLower() == "xlink:href" && attr.nodeValue().toLower().contains("sprite")){
@@ -123,81 +125,80 @@ void FrameObject::recrusiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
                     ID = attr.nodeValue().toInt();
                 }
             }
-            if(ID != -1){
-                if(type == SHAPE){
-                    newElement.setAttribute("id","shape-"+QString::number(ID));
-                }else if(type == SPRITE){
-                    newElement.setAttribute("id","sprite-"+QString::number(ID));
-                }
-            }
-            QString path = currentDirectory;
-            if(type == SHAPE){
-                parentElement.appendChild(newElement);
-                path += "/shapes";
-                QString string = QString::number(ID)+".svg";
-                QFile file(path+"/"+string);
-                if(file.exists()){
-                    if(file.open(QFile::ReadOnly)){
-                        QDomDocument doc;
-                        doc.setContent(file.readAll());
-                        file.close();
-                        QDomElement docRoot = doc.documentElement();
-                        if(docRoot.hasChildNodes()){
-                            QDomElement docElement = docRoot.firstChildElement();
-                            recrusiveSvg(ownerDoc,newElement,docElement);
-                        }
-                    }else{
-                        qDebug() << "File at '" << path << "' could not be read!";
+            if(type == SHAPE || type == SPRITE){
+                if(ID != -1){
+                    if(type == SHAPE){
+                        newElement.setAttribute("id","shape-"+QString::number(ID));
+                    }else if(type == SPRITE){
+                        newElement.setAttribute("id","sprite-"+QString::number(ID));
                     }
-                }else{
-                    qDebug() << "File at '" << path << "' does not exist!";
                 }
-            } else if(type == SPRITE){
-                path += "/sprites/DefineSprite_" + QString::number(ID);
-                QDir dir(path);
-                if(dir.exists()){
-                    bool found = false;
-                    QCollator col;
-                    col.setNumericMode(true);
-                    QStringList list = dir.entryList(QDir::Files);
-                    std::sort(list.begin(),list.end(),col);
-                    for(QString string : list){
-                        QFile file(path+"/"+string);
+                parentElement.appendChild(newElement);
+                QString path = currentDirectory;
+                if(type == SHAPE){
+                    path += "/shapes";
+                    QString string = QString::number(ID)+".svg";
+                    QFile file(path+"/"+string);
+                    if(file.exists()){
                         if(file.open(QFile::ReadOnly)){
                             QDomDocument doc;
                             doc.setContent(file.readAll());
                             file.close();
                             QDomElement docRoot = doc.documentElement();
-                            if(docRoot.hasChildNodes()){
-                                QDomElement docElement = docRoot.firstChildElement();
-
-                                QDomDocument* duplicateDoc = new QDomDocument();
-                                QDomElement duplicateDocElement = duplicateDoc->importNode(ownerDoc->documentElement(),true).toElement();
-                                duplicateDoc->appendChild(duplicateDocElement);
-
-                                docs.insert(QString::number(frameID)+"/"+string,duplicateDoc);
-                                QDomElement duplicateNewElem = duplicateDoc->importNode(newElement,true).toElement();
-                                duplicateDocElement.appendChild(duplicateNewElem);
-
-                                recrusiveSvg(duplicateDoc,duplicateNewElem,docElement);
+                            if (docRoot.hasChildNodes()) {
+                                QDomElement child = docRoot.firstChildElement();
+                                recursiveSvg(ownerDoc, newElement, child);
                             }
-                            found = true;
                         }else{
                             qDebug() << "File at '" << path << "' could not be read!";
                         }
+                    }else{
+                        qDebug() << "File at '" << path << "' does not exist!";
                     }
-                    if(!found) {
-                        qDebug() << "Sorry, didn't match " << path << ", for ID " << ID;
+                } else if(type == SPRITE){
+                    path += "/sprites/DefineSprite_" + QString::number(ID);
+                    QDir dir(path);
+                    if(dir.exists()){
+                        bool found = false;
+                        QCollator col;
+                        col.setNumericMode(true);
+                        QStringList list = dir.entryList(QDir::Files);
+                        int list_size = list.count();
+                        std::sort(list.begin(),list.end(),col);
+                        QString target = QString::number(currentSpriteIndex)+".svg";
+                        qDebug() << target;
+                        for(QString string : list){
+                            if(string == target){
+                                qDebug() << "Found" << target;
+                                QFile file(path+"/"+string);
+                                if(file.open(QFile::ReadOnly)){
+                                    QDomDocument doc;
+                                    doc.setContent(file.readAll());
+                                    file.close();
+                                    QDomElement docRoot = doc.documentElement();
+                                    if (docRoot.hasChildNodes()) {
+                                        QDomElement child = docRoot.firstChildElement();
+                                        recursiveSvg(ownerDoc, newElement, child);
+                                    }
+                                    found = true;
+                                }else{
+                                    qDebug() << "File at '" << path << "' could not be read!";
+                                }
+                            }
+                        }
+                        if(!found) {
+                            qDebug() << "Sorry, didn't match " << path << ", for ID " << ID;
+                        }
+                    }else{
+                        qDebug() << "File at '" << path << "' does not exist!";
                     }
-                }else{
-                    qDebug() << "File at '" << path << "' does not exist!";
                 }
             }
         }
         if(element.tagName().toLower() == "path"){
-            parentElement.appendChild(element.cloneNode(true));
+            parentElement.appendChild(element);
         }
-        element = element.nextSiblingElement();
+        element = nextSibling;
     }
 }
 

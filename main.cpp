@@ -57,13 +57,11 @@ int main(int argc, char *argv[])
         frame.setCurrentDirectory("C:/Users/mfn45/OneDrive/Desktop/penguin_old_export/");
         frame.setID(id);
         frame.dereferenceSvg(dir.absolutePath()+"/"+string);
-        qDebug() << frame.getMap().keys();
         //frame.outputSvg(dir.absolutePath() + "/" + string);
-        QString outputFile = string;
-        outputFile.replace(".svg","");
         frame.saveFile(dir.absolutePath() + "/output/");
         frames.append(frame);
         id++;
+        break;
     }
 
     /*QDir dir(currentDirectory + "/frames");

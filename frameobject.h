@@ -19,7 +19,7 @@ public:
     QMap<QString,QDomDocument*>& getMap();
 
 
-    void recrusiveSvg(QDomDocument* ownerDoc, QDomElement& parentElement, QDomElement& element);
+    void recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElement, QDomElement& element);
     void outputSvg(QString filePath);
     void dereferenceSvg(QString filePath);
     void saveFile(QString filePath);
@@ -29,6 +29,8 @@ private:
     QMap<QString, QDomDocument*> docs;
 
     QString currentDirectory;
+
+    int currentSpriteIndex = 1;
 
     enum TYPE {
         NONE,
