@@ -22,6 +22,7 @@ public:
     void recrusiveSvg(QDomDocument* ownerDoc, QDomElement& parentElement, QDomElement& element);
     void outputSvg(QString filePath);
     void dereferenceSvg(QString filePath);
+    void saveFile(QString filePath);
     void interpretSvg(QString filePath);
 
 private:
