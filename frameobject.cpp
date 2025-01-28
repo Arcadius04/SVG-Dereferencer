@@ -47,10 +47,10 @@ void FrameObject::saveFile(QString directoryOutput){
             qDebug() << "Error opening file, Error code: " + file.errorString();
         }
     }
-
 }
 
-void FrameObject::dereferenceSvg(QString filePath){
+
+void FrameObject::processSvg(QString filePath){
     QFile file(filePath);
     if(!file.exists()){
         //qDebug() << "File at '" << filePath << "' does not exist!";
@@ -88,6 +88,17 @@ void FrameObject::dereferenceSvg(QString filePath){
     return;
 }
 
+void FrameObject::dereferenceSvg(QString filePath){
+    int currentMax = maxSprites;
+    processSvg(filePath);
+    if(currentMax != maxSprites){
+        for(int i = currentSpriteIndex; i <= maxSprites; i++){
+            currentSpriteIndex++;
+            processSvg(filePath);
+        }
+    }
+}
+
 void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElement, QDomElement& element){
     while(!element.isNull()){
         QDomElement nextSibling = element.nextSiblingElement();
@@ -98,7 +109,6 @@ void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
                 QDomNode attr = docElementAttr.item(i);
                 if(!attr.nodeName().contains("ffdec",Qt::CaseInsensitive) && !attr.nodeName().contains("xlink",Qt::CaseInsensitive)){
                     newElement.setAttribute(attr.nodeName(),attr.nodeValue());
-                    qDebug() << attr.nodeName() << attr.nodeValue();
                 }
             }
             parentElement.appendChild(newElement);
@@ -163,12 +173,19 @@ void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
                         QCollator col;
                         col.setNumericMode(true);
                         QStringList list = dir.entryList(QDir::Files);
+                        if(list.count() > maxSprites){
+                            maxSprites = list.count();
+                        }
                         int list_size = list.count();
                         std::sort(list.begin(),list.end(),col);
                         QString target = QString::number(currentSpriteIndex)+".svg";
                         qDebug() << target;
-                        for(QString string : list){
-                            if(string == target){
+                        for(int i = list.count()-1; i >= 0; i--){
+                            QString string = list.at(i);
+                            if(found){
+                                break;
+                            }
+                            if(string == target || ((i+1) < currentSpriteIndex)){
                                 qDebug() << "Found" << target;
                                 QFile file(path+"/"+string);
                                 if(file.open(QFile::ReadOnly)){

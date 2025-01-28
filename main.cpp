@@ -58,10 +58,9 @@ int main(int argc, char *argv[])
         frame.setID(id);
         frame.dereferenceSvg(dir.absolutePath()+"/"+string);
         //frame.outputSvg(dir.absolutePath() + "/" + string);
-        frame.saveFile(dir.absolutePath() + "/output/");
+        frame.saveFile(dir.absolutePath() + "/output");
         frames.append(frame);
         id++;
-        break;
     }
 
     /*QDir dir(currentDirectory + "/frames");
