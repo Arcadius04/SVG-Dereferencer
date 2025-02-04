@@ -75,8 +75,6 @@ void TexturePacker::writeData(){
 
     QByteArray tempArray;
 
-    bool firstRow = true;
-
     for(CombinedFrameObject frame : frames){
         QJsonArray frameArr;
         QCollator col;
@@ -87,26 +85,16 @@ void TexturePacker::writeData(){
         });
         for(QString n : name){
             QDomDocument* d = frame.getMap().value(n);
-            QJsonObject obj;
-            obj["xmin"] = QString::number(c*spriteWidth);
-            obj["xmax"] = QString::number((c*spriteWidth)+spriteWidth);
-            obj["ymin"] = QString::number(r*spriteHeight);
-            obj["ymax"] = QString::number((r*spriteHeight)+spriteHeight);
-            QByteArray use = "<use id=\"" + d->documentElement().attribute("id").replace("g-","").toLocal8Bit() + "\" href=\"#" + d->documentElement().attribute("id").toLocal8Bit() + "\" width=\"100px\" height=\"100px\" x=\""+QByteArray().setNum(10)+"\" y=\""+ QByteArray().setNum(10) +"\"/>";
+            //QByteArray use = "<use id=\"" + d->documentElement().attribute("id").replace("g-","").toLocal8Bit() + "\" href=\"#" + d->documentElement().attribute("id").toLocal8Bit() + "\" width=\"100px\" height=\"100px\" x=\""+QByteArray().setNum(10)+"\" y=\""+ QByteArray().setNum(10) +"\"/>";
             //tempArray.append(use);
             tempArray.append(d->toByteArray(0));
             if(c >= (colMax-1)){
-                firstRow = false;
                 c = 0;
                 r++;
-                height += 100;
             }else{
                 c++;
-                if(firstRow){
-                    width += 100;
-                }
             }
-            frameArr.append(QJsonObject{{n,QJsonValue(obj)}});
+            frameArr.append(n);
         }
         framesArr.append(QJsonObject{{QString::number(frame.getID()),QJsonValue(frameArr)}});
     }

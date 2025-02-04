@@ -51,7 +51,7 @@ void CombinedFrameObject::processSvg(QString filePath){
     QDomElement docRoot = doc.documentElement();
 
     QDomDocument* finalized = new QDomDocument;
-    finalized->setContent("<g></g>");
+    finalized->setContent("<symbol></symbol>");
     QDomElement parentElement = finalized->documentElement();
 
     /*// SET THE ROOT TAG (<SVG></SVG>) ATTRIBUTES
@@ -62,8 +62,6 @@ void CombinedFrameObject::processSvg(QString filePath){
             parentElement.setAttribute(attr.nodeName(),attr.nodeValue());
         }
     }*/
-    parentElement.setAttribute("height","100.0px");
-    parentElement.setAttribute("width","100.0px");
     parentElement.setAttribute("id","frame-" + QString::number(frameID)+"-"+QString::number(currentSpriteIndex));
 
     if(docRoot.hasChildNodes()){
@@ -90,7 +88,7 @@ void CombinedFrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& pare
     while(!element.isNull()){
         QDomElement nextSibling = element.nextSiblingElement();
         if(element.tagName() == "clipPath"){
-            QDomElement newElement = ownerDoc->createElement("clipPath");
+            QDomElement newElement = definitions->createElement("clipPath");
             QDomNamedNodeMap docElementAttr = element.attributes();
             for(int i = 0; i < docElementAttr.count(); i++){
                 QDomNode attr = docElementAttr.item(i);
@@ -102,10 +100,10 @@ void CombinedFrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& pare
                     newElement.setAttribute(attr.nodeName(),attr.nodeValue());
                 }
             }
-            parentElement.appendChild(newElement);
+            definitions->documentElement().appendChild(newElement);
             if (element.hasChildNodes()) {
                 QDomElement child = element.firstChildElement();
-                recursiveSvg(ownerDoc, newElement, child);
+                recursiveSvg(definitions, newElement, child);
             }
         }
         if(element.tagName().toLower() == "g"){
@@ -153,8 +151,6 @@ void CombinedFrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& pare
                 if(ID != -1){
                     if(type == SHAPE){
                         newElement.setAttribute("href","#shape-"+QString::number(ID));
-                    }else if(type == SPRITE){
-                        newElement.setAttribute("href","#sprite-"+QString::number(ID)+"-"+QString::number(currentSpriteIndex));
                     }
                 }
                 QString matrix = newElement.attribute("transform");
@@ -164,18 +160,20 @@ void CombinedFrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& pare
                 newElement.removeAttribute("width");
                 QString height = newElement.attribute("height");
                 newElement.removeAttribute("height");*/
-                parentElement.appendChild(newElement.cloneNode(true));
+                QDomNode beforeNode = newElement.cloneNode(true);
+                parentElement.appendChild(beforeNode);
                 newElement.removeAttribute("transform");
                 //newElement.setAttribute("width",width);
                 //newElement.setAttribute("height",height);
                 newElement.removeAttribute("href");
+
+                int foundSpriteId = currentSpriteIndex;
                 if(ID != -1){
-                    if(type == SHAPE){
-                        newElement.setAttribute("id","shape-"+QString::number(ID));
-                    }else if(type == SPRITE){
-                        newElement.setAttribute("id","sprite-"+QString::number(ID)+"-"+QString::number(currentSpriteIndex));
-                    }
+                if(type == SHAPE){
+                    newElement.setAttribute("id","shape-"+QString::number(ID));
                 }
+                }
+
                 QString path = currentDirectory;
                 if(type == SHAPE){
                     path += "/shapes";
@@ -238,11 +236,13 @@ void CombinedFrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& pare
                                         QDomElement e = definitions->documentElement();
                                         QDomNodeList nodeList = e.elementsByTagName("g");
                                         bool alreadyInDefinition = false;
-                                        if(addedToDefinition.contains(newElement.attribute("id"))){
+                                        if(addedToDefinition.contains("sprite-"+QString::number(ID)+"-"+QString::number(i+1))){
                                             alreadyInDefinition = true;
                                         }
                                         if(alreadyInDefinition == false){
-                                            addedToDefinition.append(newElement.attribute("id"));
+                                            qDebug() << "FOUND SPRITE " << "sprite-"+QString::number(ID)+"-"+QString::number(i+1) << i+1;
+                                            foundSpriteId = i+1;
+                                            addedToDefinition.append("sprite-"+QString::number(ID)+"-"+QString::number(i+1));
                                             newElement.setTagName("g");
                                             e.appendChild(newElement);
                                             recursiveSvg(definitions, newElement, child);
@@ -259,6 +259,32 @@ void CombinedFrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& pare
                         }
                     }else{
                         qDebug() << "File at '" << path << "' does not exist!";
+                    }
+                }
+                if(ID != -1){
+                    if(type == SPRITE){
+                        newElement.setAttribute("id","sprite-"+QString::number(ID)+"-"+QString::number(foundSpriteId));
+                    }
+                }
+                if(ID != -1){
+                    if(type == SPRITE){
+                        int lastSpriteIndexAdded = 1;
+                        for(auto i = addedToDefinition.begin(); i != addedToDefinition.end(); i++){
+                            QString id = *i;
+                            if(id.startsWith("sprite-"+QString::number(ID), Qt::CaseInsensitive)){
+                                int foundSpriteIndex = id.replace("sprite-"+QString::number(ID)+"-", "", Qt::CaseInsensitive).toInt();
+                                if(foundSpriteIndex > lastSpriteIndexAdded){
+                                    lastSpriteIndexAdded = id.replace("sprite-"+QString::number(ID)+"-", "", Qt::CaseInsensitive).toInt();
+                                }
+                            }
+                        }
+                        if(lastSpriteIndexAdded < currentSpriteIndex){
+                            beforeNode.toElement().setAttribute("href","#sprite-"+QString::number(ID)+"-"+QString::number(lastSpriteIndexAdded));
+                            qDebug() << "#sprite-"+QString::number(ID)+"-"+QString::number(lastSpriteIndexAdded);
+                        } else {
+                            beforeNode.toElement().setAttribute("href","#sprite-"+QString::number(ID)+"-"+QString::number(currentSpriteIndex));
+                            qDebug() << "#sprite-"+QString::number(ID)+"-"+QString::number(currentSpriteIndex);
+                        }
                     }
                 }
             }
