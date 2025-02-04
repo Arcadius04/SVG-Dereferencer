@@ -1,16 +1,16 @@
-#include "frameobject.h"
+#include "combinedframeobject.h"
 
-FrameObject::FrameObject() {}
+CombinedFrameObject::CombinedFrameObject() {}
 
-QString FrameObject::getCurrentDirectory(){
+QString CombinedFrameObject::getCurrentDirectory(){
     return this->currentDirectory;
 }
-QString FrameObject::setCurrentDirectory(QString currentDirectory){
+QString CombinedFrameObject::setCurrentDirectory(QString currentDirectory){
     this->currentDirectory = currentDirectory;
     return this->currentDirectory;
 }
 
-void FrameObject::outputSvg(QString filePath){
+void CombinedFrameObject::outputSvg(QString filePath){
     QFile file(filePath);
     if(!file.exists()){
         //qDebug() << "File at '" << filePath << "' does not exist!";
@@ -25,32 +25,14 @@ void FrameObject::outputSvg(QString filePath){
     return;
 }
 
-void FrameObject::saveFile(QString directoryOutput){
-    QDir dir(directoryOutput);
-    if(!dir.exists()){
-        //qDebug() << "Directory does not exists at '" << directoryOutput << "', creating!";
-        QDir().mkpath(directoryOutput);
-        dir.setPath(directoryOutput);
-        //qDebug() << "Successfully created directory at '" << directoryOutput << "'!";
-    }
-    for(auto i = docs.begin(); i != docs.end(); i++){
-        QStringList list = i.key().split("/");
-        dir.mkdir(list[0]);
-
-        QFile file(directoryOutput + "/" + i.key());
-        if(file.open(QFile::ReadWrite)){
-            //qDebug() << "Writing file at '" + directoryOutput + "/" + i.key() + "'!";
-            file.write(i.value()->toByteArray());
-            file.close();
-            qDebug() << "Successfully wrote and closed file at '" + directoryOutput + "/" + i.key() + "'!";
-        }else{
-            qDebug() << "Error opening file, Error code: " + file.errorString();
-        }
-    }
+void CombinedFrameObject::setDefinitionsDocument(QDomDocument* definitions){
+    this->definitions = definitions;
+}
+QDomDocument* CombinedFrameObject::getDefinitionsDecoument(){
+    return definitions;
 }
 
-
-void FrameObject::processSvg(QString filePath){
+void CombinedFrameObject::processSvg(QString filePath){
     firstElement = true;
     QFile file(filePath);
     if(!file.exists()){
@@ -69,29 +51,30 @@ void FrameObject::processSvg(QString filePath){
     QDomElement docRoot = doc.documentElement();
 
     QDomDocument* finalized = new QDomDocument;
-    finalized->setContent("<svg></svg>");
+    finalized->setContent("<g></g>");
     QDomElement parentElement = finalized->documentElement();
 
-    // SET THE ROOT TAG (<SVG></SVG>) ATTRIBUTES
+    /*// SET THE ROOT TAG (<SVG></SVG>) ATTRIBUTES
     QDomNamedNodeMap docRootAttr = docRoot.attributes();
     for(int i = 0; i < docRootAttr.count(); i++){
         QDomNode attr = docRootAttr.item(i);
         if(attr.nodeName().toLower() == "xmlns"){//attr.nodeName().toLower() == "height" || attr.nodeName().toLower() == "width" ||
             parentElement.setAttribute(attr.nodeName(),attr.nodeValue());
         }
-    }
-    parentElement.setAttribute("height","65.0px");
-    parentElement.setAttribute("width","65.0px");
+    }*/
+    parentElement.setAttribute("height","100.0px");
+    parentElement.setAttribute("width","100.0px");
+    parentElement.setAttribute("id","frame-" + QString::number(frameID)+"-"+QString::number(currentSpriteIndex));
 
     if(docRoot.hasChildNodes()){
         QDomElement childElement = docRoot.firstChildElement();
         recursiveSvg(finalized, parentElement, childElement);
     }
-    docs.insert(QString::number(frameID) + "/" + QString::number(currentSpriteIndex) + ".svg", finalized);
+    docs.insert(QString::number(currentSpriteIndex), finalized);
     return;
 }
 
-void FrameObject::dereferenceSvg(QString filePath){
+void CombinedFrameObject::dereferenceSvg(QString filePath){
     int currentMax = maxSprites;
     processSvg(filePath);
     if(currentMax != maxSprites){
@@ -102,9 +85,29 @@ void FrameObject::dereferenceSvg(QString filePath){
     }
 }
 
-void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElement, QDomElement& element){
+void CombinedFrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElement, QDomElement& element){
+    int reservedId = -1;
     while(!element.isNull()){
         QDomElement nextSibling = element.nextSiblingElement();
+        if(element.tagName() == "clipPath"){
+            QDomElement newElement = ownerDoc->createElement("clipPath");
+            QDomNamedNodeMap docElementAttr = element.attributes();
+            for(int i = 0; i < docElementAttr.count(); i++){
+                QDomNode attr = docElementAttr.item(i);
+                if(attr.nodeName().contains("id",Qt::CaseInsensitive)){
+                    reservedId = clipIdIndex;
+                    newElement.setAttribute("id","clip-" + QString::number(reservedId));
+                    clipIdIndex++;
+                } else if(!attr.nodeName().contains("ffdec",Qt::CaseInsensitive) && !attr.nodeName().contains("xlink",Qt::CaseInsensitive)){
+                    newElement.setAttribute(attr.nodeName(),attr.nodeValue());
+                }
+            }
+            parentElement.appendChild(newElement);
+            if (element.hasChildNodes()) {
+                QDomElement child = element.firstChildElement();
+                recursiveSvg(ownerDoc, newElement, child);
+            }
+        }
         if(element.tagName().toLower() == "g"){
             QDomElement newElement = ownerDoc->createElement("g");
             QDomNamedNodeMap docElementAttr = element.attributes();
@@ -112,10 +115,12 @@ void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
                 QDomNode attr = docElementAttr.item(i);
                 if(attr.nodeName().contains("transform",Qt::CaseInsensitive) && firstElement){
                     QStringList matrix = attr.nodeValue().replace("matrix(","").replace(")","").split(", ");
-                    matrix[4] = QString::number(matrix[4].toDouble()+32.5);
-                    matrix[5] = QString::number(matrix[5].toDouble()+45);
+                    matrix[4] = QString::number(matrix[4].toDouble()+50);
+                    matrix[5] = QString::number(matrix[5].toDouble()+50);
                     newElement.setAttribute("transform","matrix("+matrix[0]+", "+matrix[1]+", "+matrix[2]+", "+matrix[3]+", "+matrix[4]+", "+matrix[5]+")");
                     firstElement = false;
+                } else if(attr.nodeName().contains("clip-path",Qt::CaseInsensitive)){
+                    newElement.setAttribute("clip-path","clip-" + QString::number(reservedId));
                 } else if(!attr.nodeName().contains("ffdec",Qt::CaseInsensitive) && !attr.nodeName().contains("xlink",Qt::CaseInsensitive)){
                     newElement.setAttribute(attr.nodeName(),attr.nodeValue());
                 }
@@ -127,13 +132,14 @@ void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
             }
         }
         if(element.tagName().toLower() == "use"){
-            QDomElement newElement = ownerDoc->createElement("g");
+            QDomElement newElement = ownerDoc->createElement("use");
             TYPE type = NONE;
             int ID = -1;
             QDomNamedNodeMap docElementAttr = element.attributes();
-            for(int i = 0; i < docElementAttr.count(); i++){
+            for(int i = 0; i <= docElementAttr.count(); i++){
                 QDomNode attr = docElementAttr.item(i);
-                if(!attr.nodeName().contains("ffdec",Qt::CaseInsensitive) && !attr.nodeName().contains("xlink",Qt::CaseInsensitive)){
+                //qDebug() << attr.nodeName() << attr.nodeValue();
+                if(!attr.nodeName().isEmpty() && !attr.nodeValue().isEmpty() && !attr.nodeName().contains("ffdec",Qt::CaseInsensitive) && !attr.nodeName().contains("xlink",Qt::CaseInsensitive) && !attr.nodeName().endsWith("id",Qt::CaseInsensitive)){
                     newElement.setAttribute(attr.nodeName(),attr.nodeValue());
                 } else if(attr.nodeName().toLower() == "xlink:href" && attr.nodeValue().toLower().contains("shape")){
                     type = SHAPE;
@@ -146,12 +152,30 @@ void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
             if(type == SHAPE || type == SPRITE){
                 if(ID != -1){
                     if(type == SHAPE){
-                        newElement.setAttribute("id","shape-"+QString::number(ID));
+                        newElement.setAttribute("href","#shape-"+QString::number(ID));
                     }else if(type == SPRITE){
-                        newElement.setAttribute("id","sprite-"+QString::number(ID));
+                        newElement.setAttribute("href","#sprite-"+QString::number(ID)+"-"+QString::number(currentSpriteIndex));
                     }
                 }
-                parentElement.appendChild(newElement);
+                QString matrix = newElement.attribute("transform");
+                //newElement.removeAttribute("transform");
+                /*
+                QString width = newElement.attribute("width");
+                newElement.removeAttribute("width");
+                QString height = newElement.attribute("height");
+                newElement.removeAttribute("height");*/
+                parentElement.appendChild(newElement.cloneNode(true));
+                newElement.removeAttribute("transform");
+                //newElement.setAttribute("width",width);
+                //newElement.setAttribute("height",height);
+                newElement.removeAttribute("href");
+                if(ID != -1){
+                    if(type == SHAPE){
+                        newElement.setAttribute("id","shape-"+QString::number(ID));
+                    }else if(type == SPRITE){
+                        newElement.setAttribute("id","sprite-"+QString::number(ID)+"-"+QString::number(currentSpriteIndex));
+                    }
+                }
                 QString path = currentDirectory;
                 if(type == SHAPE){
                     path += "/shapes";
@@ -165,7 +189,17 @@ void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
                             QDomElement docRoot = doc.documentElement();
                             if (docRoot.hasChildNodes()) {
                                 QDomElement child = docRoot.firstChildElement();
-                                recursiveSvg(ownerDoc, newElement, child);
+                                QDomElement e = definitions->documentElement();
+                                bool alreadyInDefinition = false;
+                                if(addedToDefinition.contains(newElement.attribute("id"))){
+                                    alreadyInDefinition = true;
+                                }
+                                if(alreadyInDefinition == false){
+                                    addedToDefinition.append(newElement.attribute("id"));
+                                    newElement.setTagName("g");
+                                    e.appendChild(newElement);
+                                    recursiveSvg(definitions, newElement, child);
+                                }
                             }
                         }else{
                             qDebug() << "File at '" << path << "' could not be read!";
@@ -201,7 +235,18 @@ void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
                                     QDomElement docRoot = doc.documentElement();
                                     if (docRoot.hasChildNodes()) {
                                         QDomElement child = docRoot.firstChildElement();
-                                        recursiveSvg(ownerDoc, newElement, child);
+                                        QDomElement e = definitions->documentElement();
+                                        QDomNodeList nodeList = e.elementsByTagName("g");
+                                        bool alreadyInDefinition = false;
+                                        if(addedToDefinition.contains(newElement.attribute("id"))){
+                                            alreadyInDefinition = true;
+                                        }
+                                        if(alreadyInDefinition == false){
+                                            addedToDefinition.append(newElement.attribute("id"));
+                                            newElement.setTagName("g");
+                                            e.appendChild(newElement);
+                                            recursiveSvg(definitions, newElement, child);
+                                        }
                                     }
                                     found = true;
                                 }else{
@@ -225,15 +270,15 @@ void FrameObject::recursiveSvg(QDomDocument* ownerDoc, QDomElement& parentElemen
     }
 }
 
-QMap<QString,QDomDocument*>& FrameObject::getMap(){
+QMap<QString,QDomDocument*>& CombinedFrameObject::getMap(){
     return this->docs;
 }
 
-int FrameObject::getID(){
+int CombinedFrameObject::getID(){
     return this->frameID;
 }
 
-int FrameObject::setID(int frameID){
+int CombinedFrameObject::setID(int frameID){
     this->frameID = frameID;
     return this->frameID;
 }

@@ -16,6 +16,8 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
 add_executable(SVG-Dereferencer
   main.cpp
   frameobject.h frameobject.cpp
+  combinedframeobject.h combinedframeobject.cpp
+  texturepacker.h texturepacker.cpp
 )
 target_link_libraries(SVG-Dereferencer Qt${QT_VERSION_MAJOR}::Core)
 target_link_libraries(SVG-Dereferencer Qt${QT_VERSION_MAJOR}::Xml)

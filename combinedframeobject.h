@@ -1,5 +1,5 @@
-#ifndef FRAMEOBJECT_H
-#define FRAMEOBJECT_H
+#ifndef COMBINEDFRAMEOBJECT_H
+#define COMBINEDFRAMEOBJECT_H
 
 #include <QDomDocument>
 #include <QFile>
@@ -8,10 +8,10 @@
 #include <QCollator>
 #include <QMap>
 
-class FrameObject
+class CombinedFrameObject
 {
 public:
-    FrameObject();
+    CombinedFrameObject();
     int getID();
     int setID(int frameID);
     QString getCurrentDirectory();
@@ -22,16 +22,23 @@ public:
     void outputSvg(QString filePath);
     void dereferenceSvg(QString filePath);
     void processSvg(QString filepath);
-    void saveFile(QString filePath);
+
+    void setDefinitionsDocument(QDomDocument* definitions);
+    QDomDocument* getDefinitionsDecoument();
 
 private:
     QMap<QString, QDomDocument*> docs;
+    QList<QString> addedToDefinition;
+
+    QDomDocument* definitions = nullptr;
 
     QString currentDirectory;
 
     bool firstElement = true;
     int currentSpriteIndex = 1;
     int maxSprites = 1;
+
+    int clipIdIndex = 0;
 
     enum TYPE {
         NONE,
@@ -41,4 +48,4 @@ private:
     int frameID = -1;
 };
 
-#endif // FRAMEOBJECT_H
+#endif // COMBINEDFRAMEOBJECT_H
