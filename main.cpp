@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
 
-    /*QDir dir1("C:/Users/mfn45/OneDrive/Desktop/Clothings/1-499/sprite_export");
+    /*QDir dir1("INSERT DIRECTOY");
     if(!dir1.exists()){
         qDebug() << "Directory does not exist!";
         return -1;
@@ -49,12 +49,12 @@ int main(int argc, char *argv[])
         }
     }*/
 
-    QString directory = "C:/Users/mfn45/OneDrive/Desktop/penguin_old_export/";//C:/Users/mfn45/OneDrive/Desktop/Clothings/1-499/sprite_export
+    QString directory = "";// Insert a directory to export
 
     TexturePacker tp;
-    tp.setDirectory(directory);// + "112");
-    tp.setOutputDirectory(directory + "/output");//"112/output");
-    tp.setOutputFileName("penguin");
+    tp.setDirectory(directory);
+    tp.setOutputDirectory(directory + "/output");
+    tp.setOutputFileName("OUTPUTFILE");
     tp.dereferenceSVG();
     tp.writeData();
     tp.saveOutputSVG();
